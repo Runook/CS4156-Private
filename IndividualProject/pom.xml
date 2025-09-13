@@ -44,7 +44,58 @@
 
 	<build>
 		<plugins>
-			<plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.8.6.4</version>
+                <configuration>
+                    <failOnError>true</failOnError>        <!-- 有高优先级问题就 fail 构建 -->
+                    <effort>max</effort>                    <!-- 扫描更深入 -->
+                    <threshold>Medium</threshold>           <!-- 过滤级别：Low/Medium/High -->
+                    <excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile> <!-- 可选 -->
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.21.0</version>
+                <configuration>
+                    <!-- 有违规就让构建失败；只想看报告可改成 false -->
+                    <failOnViolation>true</failOnViolation>
+                    <!-- 一般不检查测试代码；如需一起查改为 true -->
+                    <includeTests>false</includeTests>
+                    <!-- 不启用 jxr 的交叉引用也能生成 HTML -->
+                    <linkXRef>false</linkXRef>
+                    <!-- PMD 7 的分类规则集合，可按需增删 -->
+                    <rulesets>
+                        <ruleset>category/java/errorprone.xml</ruleset>
+                        <ruleset>category/java/bestpractices.xml</ruleset>
+                        <ruleset>category/java/performance.xml</ruleset>
+                        <ruleset>category/java/codestyle.xml</ruleset>
+                    </rulesets>
+                    <!-- CPD（重复代码）阈值，数值越小越严格 -->
+                    <minimumTokens>100</minimumTokens>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>       <!-- PMD 规则检查 -->
+                            <goal>cpd-check</goal>   <!-- 重复代码检查 -->
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
@@ -93,5 +144,29 @@
 			</plugin>
 		</plugins>
 	</build>
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.21.0</version>
+                <configuration>
+                    <linkXRef>false</linkXRef>
+                    <rulesets>
+                        <ruleset>category/java/errorprone.xml</ruleset>
+                        <ruleset>category/java/bestpractices.xml</ruleset>
+                        <ruleset>category/java/performance.xml</ruleset>
+                        <ruleset>category/java/codestyle.xml</ruleset>
+                    </rulesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.8.6.4</version>
+            </plugin>
+        </plugins>
+    </reporting>
+
 
 </project>
