@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.coms4156.project.individualproject.model.Book;
 import java.io.InputStream;
 import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MockApiService {
 
+  private static final Logger logger = LoggerFactory.getLogger(MockApiService.class);
   private ArrayList<Book> books;
   private ArrayList<String> bags;
 
@@ -28,15 +31,16 @@ public class MockApiService {
     try (InputStream is = Thread.currentThread().getContextClassLoader()
         .getResourceAsStream("mockdata/books.json")) {
       if (is == null) {
-        System.err.println("Failed to find mockdata/books.json in resources.");
+        logger.warn("Could not find mockdata/books.json in classpath");
         books = new ArrayList<>(0);
       } else {
         ObjectMapper mapper = new ObjectMapper();
         books = mapper.readValue(is, new TypeReference<ArrayList<Book>>(){});
-        System.out.println("Successfully loaded books from mockdata/books.json.");
+        logger.info("Successfully loaded {} books from mockdata/books.json", books.size());
       }
     } catch (Exception e) {
-    //      System.err.println("Failed to load books: " + e.getMessage());
+      logger.error("Failed to load books from mockdata/books.json", e);
+      books = new ArrayList<>(0);
     }
   }
 

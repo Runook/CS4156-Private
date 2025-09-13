@@ -3,6 +3,8 @@ package dev.coms4156.project.individualproject.controller;
 import dev.coms4156.project.individualproject.model.Book;
 import dev.coms4156.project.individualproject.service.MockApiService;
 import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RouteController {
 
+  private static final Logger logger = LoggerFactory.getLogger(RouteController.class);
   private final MockApiService mockApiService;
 
   public RouteController(MockApiService mockApiService) {
@@ -44,13 +47,27 @@ public class RouteController {
    */
   @GetMapping({"/book/{id}"})
   public ResponseEntity<?> getBook(@PathVariable int id) {
-    for (Book book : mockApiService.getBooks()) {
-      if (book.getId() == id) {
-        return new ResponseEntity<>(book, HttpStatus.OK);
-      }
+    logger.info("Retrieving book with id: {}", id);
+    
+    if (id < 0) {
+      logger.warn("Invalid book id provided: {}", id);
+      return new ResponseEntity<>("Invalid book id", HttpStatus.BAD_REQUEST);
     }
-
-    return new ResponseEntity<>("Book not found.", HttpStatus.NOT_FOUND);
+    
+    try {
+      for (Book book : mockApiService.getBooks()) {
+        if (book.getId() == id) {
+          logger.info("Successfully found book with id: {}", id);
+          return new ResponseEntity<>(book, HttpStatus.OK);
+        }
+      }
+      
+      logger.info("Book not found with id: {}", id);
+      return new ResponseEntity<>("Book not found.", HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      logger.error("Error retrieving book with id: {}", id, e);
+      return new ResponseEntity<>("An error occurred while retrieving book", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -62,6 +79,8 @@ public class RouteController {
    */
   @PutMapping({"/books/available"})
   public ResponseEntity<?> getAvailableBooks() {
+    logger.info("Retrieving all available books");
+    
     try {
       ArrayList<Book> availableBooks = new ArrayList<>();
 
@@ -71,11 +90,13 @@ public class RouteController {
         }
       }
 
-      return new ResponseEntity<>(mockApiService.getBooks(), HttpStatus.OK);
+      logger.info("Found {} available books out of {} total books", 
+                  availableBooks.size(), mockApiService.getBooks().size());
+      return new ResponseEntity<>(availableBooks, HttpStatus.OK);
     } catch (Exception e) {
-      System.err.println(e);
+      logger.error("Error occurred when getting all available books", e);
       return new ResponseEntity<>("Error occurred when getting all available books",
-          HttpStatus.OK);
+          HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -89,19 +110,30 @@ public class RouteController {
    */
   @PatchMapping({"/book/{bookId}/add"})
   public ResponseEntity<?> addCopy(@PathVariable Integer bookId) {
+    logger.info("Adding copy to book with id: {}", bookId);
+    
+    if (bookId == null || bookId < 0) {
+      logger.warn("Invalid book id provided for addCopy: {}", bookId);
+      return new ResponseEntity<>("Invalid book id", HttpStatus.BAD_REQUEST);
+    }
+    
     try {
       for (Book book : mockApiService.getBooks()) {
         if (bookId.equals(book.getId())) {
+          int previousTotal = book.getTotalCopies();
           book.addCopy();
+          logger.info("Successfully added copy to book with id: {}. Total copies: {} -> {}", 
+                     bookId, previousTotal, book.getTotalCopies());
           return new ResponseEntity<>(book, HttpStatus.OK);
         }
       }
 
-      return new ResponseEntity<>("Book not found.", HttpStatus.I_AM_A_TEAPOT);
+      logger.info("Book not found when trying to add copy. Book id: {}", bookId);
+      return new ResponseEntity<>("Book not found.", HttpStatus.NOT_FOUND);
     } catch (Exception e) {
-      System.err.println(e);
+      logger.error("Error adding copy to book with id: {}", bookId, e);
+      return new ResponseEntity<>("An error occurred while adding copy", HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    return ResponseEntity.notFound().build();
   }
 
 }
