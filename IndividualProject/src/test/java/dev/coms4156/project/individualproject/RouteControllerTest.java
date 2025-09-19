@@ -1,14 +1,16 @@
-package dev.coms4156.project.individualproject.controller;
+package dev.coms4156.project.individualproject;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.coms4156.project.individualproject.controller.RouteController;
 import dev.coms4156.project.individualproject.model.Book;
 import dev.coms4156.project.individualproject.service.MockApiService;
 import java.util.ArrayList;
@@ -92,17 +94,16 @@ class RouteControllerTest {
   }
 
   /**
-   * Tests the getAvailableBooks endpoint's current behavior of returning all books.
+   * Tests the getAvailableBooks endpoint returns only available books.
    * 
-   * <p>This test documents the current implementation behavior where the endpoint
-   * returns all books from the service, regardless of their availability status.
-   * The test includes one book with available copies and one without available
-   * copies to demonstrate that both are returned in the response.
+   * <p>This test verifies that the endpoint correctly filters and returns
+   * only books that have available copies (copiesAvailable > 0).
+   * Books with no available copies should not be included in the response.
    *
    * @throws Exception if the HTTP request fails
    */
   @Test
-  void getAvailableBooks_currentBehavior_returnsServiceList() throws Exception {
+  void getAvailableBooks_filtersAvailableBooks() throws Exception {
     Book b1 = new Book("A", 1);
     Book b2 = new Book("B", 2);
     b2.deleteCopy(); // Make b2 have no available copies
@@ -111,7 +112,9 @@ class RouteControllerTest {
     mvc.perform(put("/books/available"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(1))
-            .andExpect(jsonPath("$[1].id").value(2));
+            .andExpect(jsonPath("$[0].title").value("A"))
+            .andExpect(jsonPath("$[0].copiesAvailable").value(1))
+            .andExpect(jsonPath("$[1]").doesNotExist()); // b2 should not be returned
   }
 
   /**
@@ -142,5 +145,253 @@ class RouteControllerTest {
     when(mockApiService.getBooks()).thenReturn(new ArrayList<>(List.of(book)));
     mvc.perform(patch("/book/999/add").contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().is(418));
+  }
+
+  // ========== Tests for /books/recommendation endpoint ==========
+
+  /**
+   * Tests the book recommendation endpoint with sufficient books.
+   * 
+   * <p>Verifies that the endpoint returns exactly 10 books when there are
+   * enough books available in the system.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void getRecommendations_sufficientBooks_returns10Books() throws Exception {
+    final List<Book> books = createBooksForRecommendation(15);
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(books));
+
+    mvc.perform(get("/books/recommendation"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(10));
+  }
+
+  /**
+   * Tests the book recommendation endpoint with insufficient books.
+   * 
+   * <p>Verifies that when there are fewer than 10 books available,
+   * the endpoint returns all available books.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void getRecommendations_insufficientBooks_returnsAllAvailable() throws Exception {
+    final List<Book> books = createBooksForRecommendation(5);
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(books));
+
+    mvc.perform(get("/books/recommendation"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(5));
+  }
+
+  /**
+   * Tests the book recommendation endpoint with no books.
+   * 
+   * <p>Verifies that when no books are available, the endpoint
+   * returns an empty list.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void getRecommendations_noBooks_returnsEmptyList() throws Exception {
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>());
+
+    mvc.perform(get("/books/recommendation"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(0));
+  }
+
+  /**
+   * Tests the book recommendation endpoint ensures popularity ordering.
+   * 
+   * <p>Verifies that popular books (higher checkout counts) are included
+   * in recommendations when there are exactly 10 books.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void getRecommendations_includesPopularBooks() throws Exception {
+    final List<Book> books = new ArrayList<>();
+    
+    // Create 5 highly popular books (checked out multiple times)
+    for (int i = 1; i <= 5; i++) {
+      final Book book = new Book("Popular Book " + i, i);
+      for (int j = 0; j < (10 - i); j++) { // Different popularity levels
+        book.checkoutCopy();
+        book.returnCopy(book.getReturnDates().get(0));
+      }
+      books.add(book);
+    }
+    
+    // Create 5 less popular books (never checked out)
+    for (int i = 6; i <= 10; i++) {
+      books.add(new Book("Regular Book " + i, i));
+    }
+    
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(books));
+
+    mvc.perform(get("/books/recommendation"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(10))
+            .andExpect(jsonPath("$[0].title").value(containsString("Popular")));
+  }
+
+  // ========== Tests for /checkout endpoint ==========
+
+  /**
+   * Tests successful book checkout with valid book ID.
+   * 
+   * <p>Verifies that checking out a book with available copies
+   * returns HTTP 200 OK with the updated book object.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_validId_returnsUpdatedBook() throws Exception {
+    final Book book = new Book("Test Book", 1);
+    book.addCopy(); // Ensure there's a copy to checkout
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(List.of(book)));
+
+    mvc.perform(post("/checkout").param("bookId", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.title").value("Test Book"))
+            .andExpect(jsonPath("$.copiesAvailable").value(1)) // Should decrease
+            .andExpect(jsonPath("$.amountOfTimesCheckedOut").value(1)); // Should increase
+  }
+
+  /**
+   * Tests book checkout with invalid book ID.
+   * 
+   * <p>Verifies that attempting to checkout a non-existent book
+   * returns HTTP 404 Not Found with appropriate error message.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_invalidId_returns404() throws Exception {
+    final Book book = new Book("Test Book", 1);
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(List.of(book)));
+
+    mvc.perform(post("/checkout").param("bookId", "999"))
+            .andExpect(status().isNotFound())
+            .andExpect(content().string(containsString("Book not found")));
+  }
+
+  /**
+   * Tests book checkout with null book ID.
+   * 
+   * <p>Verifies that attempting to checkout with null book ID
+   * returns HTTP 400 Bad Request with appropriate error message.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_nullId_returns400() throws Exception {
+    mvc.perform(post("/checkout"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().string(containsString("Invalid book ID")));
+  }
+
+  /**
+   * Tests book checkout with negative book ID.
+   * 
+   * <p>Verifies that attempting to checkout with negative book ID
+   * returns HTTP 400 Bad Request with appropriate error message.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_negativeId_returns400() throws Exception {
+    mvc.perform(post("/checkout").param("bookId", "-1"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().string(containsString("Invalid book ID")));
+  }
+
+  /**
+   * Tests book checkout when no copies are available.
+   * 
+   * <p>Verifies that attempting to checkout a book with no available copies
+   * returns HTTP 409 Conflict with appropriate error message.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_noCopiesAvailable_returns409() throws Exception {
+    final Book book = new Book("Test Book", 1);
+    book.deleteCopy(); // Remove the only copy to make it unavailable
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(List.of(book)));
+
+    mvc.perform(post("/checkout").param("bookId", "1"))
+            .andExpect(status().isConflict())
+            .andExpect(content().string(containsString("No copies available")));
+  }
+
+  /**
+   * Tests checkout endpoint with edge case of zero ID.
+   * 
+   * <p>Verifies that zero is treated as an invalid book ID and
+   * returns HTTP 400 Bad Request.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_zeroId_returns400() throws Exception {
+    mvc.perform(post("/checkout").param("bookId", "0"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().string(containsString("Invalid book ID")));
+  }
+
+  /**
+   * Tests multiple checkout operations on the same book.
+   * 
+   * <p>Verifies that multiple checkout operations correctly
+   * decrement available copies and increment checkout count.
+   *
+   * @throws Exception if the HTTP request fails
+   */
+  @Test
+  void checkoutBook_multipleCheckouts_updatesCountsCorrectly() throws Exception {
+    final Book book = new Book("Multi Checkout Book", 1);
+    book.addCopy();
+    book.addCopy(); // Now has 3 total copies
+    when(mockApiService.getBooks()).thenReturn(new ArrayList<>(List.of(book)));
+
+    // First checkout
+    mvc.perform(post("/checkout").param("bookId", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.copiesAvailable").value(2))
+            .andExpect(jsonPath("$.amountOfTimesCheckedOut").value(1));
+
+    // Second checkout - the book state should already be updated by the first checkout
+    mvc.perform(post("/checkout").param("bookId", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.copiesAvailable").value(1))
+            .andExpect(jsonPath("$.amountOfTimesCheckedOut").value(2));
+  }
+
+  // ========== Helper methods ==========
+
+  /**
+   * Creates a list of books for recommendation testing.
+   * 
+   * @param count Number of books to create
+   * @return List of books with varied checkout histories
+   */
+  private List<Book> createBooksForRecommendation(final int count) {
+    final List<Book> books = new ArrayList<>();
+    for (int i = 1; i <= count; i++) {
+      final Book book = new Book("Book " + i, i);
+      // Give some books different popularity levels
+      for (int j = 0; j < (i % 5); j++) {
+        book.checkoutCopy();
+        if (!book.getReturnDates().isEmpty()) {
+          book.returnCopy(book.getReturnDates().get(0));
+        }
+      }
+      books.add(book);
+    }
+    return books;
   }
 }

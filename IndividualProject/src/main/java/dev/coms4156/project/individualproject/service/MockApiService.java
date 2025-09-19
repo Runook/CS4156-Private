@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.coms4156.project.individualproject.model.Book;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 
@@ -15,8 +18,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class MockApiService {
 
-  private ArrayList<Book> books;
-  private ArrayList<String> bags;
+  private static final Logger LOGGER = LoggerFactory.getLogger(MockApiService.class);
+  private List<Book> books;
+  private List<String> bags;
 
   /**
    * Constructs a new {@code MockApiService} and loads book data from a JSON file located at
@@ -25,23 +29,26 @@ public class MockApiService {
    * cannot be parsed, an error message is printed and no data is loaded.
    */
   public MockApiService() {
-    try (InputStream is = Thread.currentThread().getContextClassLoader()
+    try (InputStream inputStream = Thread.currentThread().getContextClassLoader()
         .getResourceAsStream("mockdata/books.json")) {
-      if (is == null) {
-        System.err.println("Failed to find mockdata/books.json in resources.");
+      if (inputStream == null) {
+        LOGGER.error("Failed to find mockdata/books.json in resources.");
         books = new ArrayList<>(0);
       } else {
-        ObjectMapper mapper = new ObjectMapper();
-        books = mapper.readValue(is, new TypeReference<ArrayList<Book>>(){});
-        System.out.println("Successfully loaded books from mockdata/books.json.");
+        final ObjectMapper mapper = new ObjectMapper();
+        books = mapper.readValue(inputStream, new TypeReference<ArrayList<Book>>(){});
+        if (LOGGER.isInfoEnabled()) {
+          LOGGER.info("Successfully loaded {} books from mockdata/books.json", books.size());
+        }
       }
-    } catch (Exception e) {
-    //      System.err.println("Failed to load books: " + e.getMessage());
+    } catch (final Exception e) {
+      LOGGER.error("Failed to load books from JSON file", e);
+      books = new ArrayList<>(0);
     }
   }
 
-  public ArrayList<Book> getBooks() {
-    return books;
+  public List<Book> getBooks() {
+    return new ArrayList<>(books);
   }
 
   /**
@@ -52,9 +59,9 @@ public class MockApiService {
    *                to replace the existing entry.
    */
 
-  public void updateBook(Book newBook) {
-    ArrayList<Book> tmpBooks = new ArrayList<>();
-    for (Book book : books) {
+  public void updateBook(final Book newBook) {
+    final List<Book> tmpBooks = new ArrayList<>();
+    for (final Book book : books) {
       if (book.equals(newBook)) {
         tmpBooks.add(newBook);
       } else {
@@ -62,7 +69,7 @@ public class MockApiService {
       }
     }
 
-    this.books = this.books;
+    this.books = tmpBooks;
   }
 
   public void printBooks() {

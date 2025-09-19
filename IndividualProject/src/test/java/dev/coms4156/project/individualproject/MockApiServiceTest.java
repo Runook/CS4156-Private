@@ -1,10 +1,12 @@
-package dev.coms4156.project.individualproject.service;
+package dev.coms4156.project.individualproject;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import dev.coms4156.project.individualproject.model.Book;
+import dev.coms4156.project.individualproject.service.MockApiService;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,8 +30,8 @@ class MockApiServiceTest {
    */
   @Test
   void constructor_initializesBooksList() {
-    MockApiService s = new MockApiService();
-    assertNotNull(s.getBooks(), "books list should be initialized (possibly empty)");
+    final MockApiService service = new MockApiService();
+    assertNotNull(service.getBooks(), "books list should be initialized (possibly empty)");
   }
 
   /**
@@ -44,16 +46,16 @@ class MockApiServiceTest {
    */
   @Test
   void updateBook_keepsListSize() {
-    MockApiService s = new MockApiService();
-    ArrayList<Book> before = s.getBooks();
-    int sizeBefore = before.size();
+    final MockApiService service = new MockApiService();
+    final List<Book> before = service.getBooks();
+    final int sizeBefore = before.size();
 
     // If list is non-empty, use first book's id for replacement; otherwise use a new id
-    int id = sizeBefore > 0 ? before.get(0).getId() : 123456;
-    Book replacement = new Book("Replacement", id);
+    final int bookId = sizeBefore > 0 ? before.get(0).getId() : 123456;
+    final Book replacement = new Book("Replacement", bookId);
 
-    s.updateBook(replacement);
+    service.updateBook(replacement);
 
-    assertEquals(sizeBefore, s.getBooks().size(), "replacing should keep size unchanged");
+    assertEquals(sizeBefore, service.getBooks().size(), "replacing should keep size unchanged");
   }
 }
