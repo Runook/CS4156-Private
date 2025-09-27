@@ -97,6 +97,31 @@ This project underwent comprehensive bug fixing using PMD analysis combined with
 
 See `bugs.md` for detailed documentation of all fixed bugs.
 
+## Continuous Integration and Deployment
+
+This project uses GitHub Actions for continuous integration to ensure code quality and functionality.
+
+### GitHub Actions Workflow
+
+The CI pipeline (`.github/workflows/ci.yml`) automatically:
+- Compiles the project with `mvn clean compile`
+- Runs all unit tests with `mvn test`
+- Validates code style with `mvn checkstyle:check`
+- Generates test coverage reports with `mvn jacoco:report`
+
+**Triggers:**
+- Push to `main` branch
+- Pull requests targeting `main` branch
+
+**Environment:**
+- Ubuntu Latest
+- Java 17 (Temurin Distribution)
+- Maven dependency caching for faster builds
+
+### Platform-as-a-Service (PaaS) Deployment
+
+For detailed information about PaaS concepts and how they integrate with CI/CD workflows for cloud deployment, see `deployment.md`.
+
 ## Testing
 
 Run the complete test suite:
