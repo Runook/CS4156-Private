@@ -28,7 +28,7 @@ jobs:
         distribution: 'temurin'
         
     - name: Cache Maven packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -55,7 +55,7 @@ jobs:
         mvn jacoco:report
         
     - name: Upload coverage reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: jacoco-report
         path: IndividualProject/target/site/jacoco/
