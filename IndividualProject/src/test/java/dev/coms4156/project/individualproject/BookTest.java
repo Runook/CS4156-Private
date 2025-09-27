@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.coms4156.project.individualproject.model.Book;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -177,5 +178,83 @@ class BookTest {
     assertNotEquals(book, diffId);            // different id
     assertEquals(book.hashCode(), sameId.hashCode());
     assertTrue(book.compareTo(diffId) < 0);
+  }
+
+  @Test
+  void constructorWithNullAuthors_handlesNullCorrectly() {
+    // Test constructor with null authors parameter
+    Book book = new Book("Test Title", null, "English", "Location", 
+                        "2023-01-01", "Publisher", List.of("Subject"), 
+                        1, 5, 10);
+    
+    assertNotNull(book.getAuthors());
+    assertTrue(book.getAuthors().isEmpty());
+    assertFalse(book.hasMultipleAuthors());
+  }
+
+  @Test
+  void constructorWithNullSubjects_handlesNullCorrectly() {
+    // Test constructor with null subjects parameter
+    Book book = new Book("Test Title", List.of("Author"), "English", "Location", 
+                        "2023-01-01", "Publisher", null, 
+                        1, 5, 10);
+    
+    assertNotNull(book.getSubjects());
+    assertTrue(book.getSubjects().isEmpty());
+  }
+
+  @Test
+  void setAuthorsWithNull_handlesNullCorrectly() {
+    // Test setAuthors with null parameter
+    Book book = new Book("Test Title", 1);
+    book.setAuthors(null);
+    
+    assertNotNull(book.getAuthors());
+    assertTrue(book.getAuthors().isEmpty());
+  }
+
+  @Test
+  void setLanguageWithNull_handlesNullCorrectly() {
+    // Test setLanguage with null parameter
+    Book book = new Book("Test Title", 1);
+    book.setLanguage(null);
+    
+    assertEquals("", book.getLanguage());
+  }
+
+  @Test
+  void setShelvingLocationWithNull_handlesNullCorrectly() {
+    // Test setShelvingLocation with null parameter
+    Book book = new Book("Test Title", 1);
+    book.setShelvingLocation(null);
+    
+    assertEquals("", book.getShelvingLocation());
+  }
+
+  @Test
+  void setSubjectsWithNull_handlesNullCorrectly() {
+    // Test setSubjects with null parameter
+    Book book = new Book("Test Title", 1);
+    book.setSubjects(null);
+    
+    assertNotNull(book.getSubjects());
+    assertTrue(book.getSubjects().isEmpty());
+  }
+
+  @Test
+  void setReturnDatesWithNull_handlesNullCorrectly() {
+    // Test setReturnDates with null parameter
+    Book book = new Book("Test Title", 1);
+    book.setReturnDates(null);
+    
+    assertNotNull(book.getReturnDates());
+    assertTrue(book.getReturnDates().isEmpty());
+  }
+
+  @Test
+  void equalsWithNullObject_returnsFalse() {
+    // Test equals method with null object (additional branch coverage)
+    Book book = new Book("Test Title", 1);
+    assertFalse(book.equals(null));
   }
 }

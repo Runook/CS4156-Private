@@ -1,6 +1,7 @@
 package dev.coms4156.project.individualproject;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -16,11 +17,13 @@ import dev.coms4156.project.individualproject.service.MockApiService;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
  * Web layer integration tests for the RouteController class.
@@ -393,5 +396,129 @@ class RouteControllerTest {
       books.add(book);
     }
     return books;
+  }
+
+  @Test 
+  void addCopy_withMockException_returnsNotFound() throws Exception {
+    // Test exception handling branch in addCopy method
+    MockApiService mockService = Mockito.mock(MockApiService.class);
+    when(mockService.getBooks()).thenThrow(new RuntimeException("Mock exception"));
+    
+    RouteController controller = new RouteController(mockService);
+    MockMvc customMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    
+    customMvc.perform(patch("/book/1/add"))
+            .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void getAvailableBooks_withMockException_returnsInternalServerError() throws Exception {
+    // Test exception handling branch in getAvailableBooks method
+    MockApiService mockService = Mockito.mock(MockApiService.class);
+    when(mockService.getBooks()).thenThrow(new RuntimeException("Mock exception"));
+    
+    RouteController controller = new RouteController(mockService);
+    
+    MockMvc customMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    
+    customMockMvc.perform(put("/books/available"))
+                 .andExpect(status().isInternalServerError())
+                 .andExpect(content().string("Error occurred when getting all available books"));
+  }
+
+  @Test
+  void checkoutBook_withMockServiceException_returnsInternalServerError() throws Exception {
+    // Test exception handling branch in checkout method
+    MockApiService mockService = Mockito.mock(MockApiService.class);
+    when(mockService.getBooks()).thenThrow(new RuntimeException("Mock exception"));
+    
+    RouteController controller = new RouteController(mockService);
+    MockMvc customMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    
+    customMockMvc.perform(post("/checkout").param("bookId", "1"))
+                 .andExpect(status().isInternalServerError())
+                 .andExpect(content().string("An error occurred during checkout"));
+  }
+
+  @Test
+  void getBookRecommendations_withMockException_returnsInternalServerError() throws Exception {
+    // Test exception handling branch in recommendations method
+    MockApiService mockService = Mockito.mock(MockApiService.class);
+    when(mockService.getBooks()).thenThrow(new RuntimeException("Mock exception"));
+    
+    RouteController controller = new RouteController(mockService);
+    MockMvc customMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    
+    customMockMvc.perform(get("/books/recommendation"))
+                 .andExpect(status().isInternalServerError())
+                 .andExpect(content().string("Error generating recommendations"));
+  }
+
+  @Test
+  void addCopy_withNonExistentBook_returnsTeapotStatus() throws Exception {
+    // Test the specific I_AM_A_TEAPOT status branch in addCopy
+    mvc.perform(patch("/book/999/add"))
+            .andExpect(status().isIAmATeapot())
+            .andExpect(content().string("Book not found."));
+  }
+
+  @Test  
+  void checkoutBook_withLoggingEnabled_exercisesLoggingBranches() throws Exception {
+    // This test exercises the logging condition branches
+    // The logging behavior will depend on the actual logging configuration
+    
+    // Test with valid book ID (should hit info logging branch)
+    // Get a book ID that actually exists in the mock service
+    List<Book> books = mockApiService.getBooks();
+    if (!books.isEmpty()) {
+      Book firstBook = books.get(0);
+      mvc.perform(post("/checkout").param("bookId", String.valueOf(firstBook.getId())))
+              .andExpect(status().isOk());
+    }
+            
+    // Test with invalid book ID (should hit warn logging branch)  
+    mvc.perform(post("/checkout").param("bookId", "-1"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().string("Invalid book ID"));
+            
+    // Test with no available copies (should hit warn logging branch)
+    // Find a book that exists and modify it to have no copies
+    List<Book> availableBooks = mockApiService.getBooks();
+    if (!availableBooks.isEmpty()) {
+      Book existingBook = availableBooks.get(0);
+      // Make all copies unavailable by checking them out
+      while (existingBook.getCopiesAvailable() > 0) {
+        existingBook.checkoutCopy();
+      }
+      
+      mvc.perform(post("/checkout").param("bookId", String.valueOf(existingBook.getId())))
+              .andExpect(status().isConflict())
+              .andExpect(content().string("No copies available for checkout"));
+    }
+  }
+
+  @Test
+  void getBookRecommendations_withLoggingEnabled_exercisesLoggingBranches() throws Exception {
+    // Test logging branches in recommendation method
+    
+    // Test with sufficient books (should hit info logging branch)
+    mvc.perform(get("/books/recommendation"))
+            .andExpect(status().isOk());
+            
+    // Test with insufficient books (should hit warn logging branch)
+    MockApiService limitedService = Mockito.mock(MockApiService.class);
+    List<Book> limitedBooks = List.of(
+        new Book("Book1", 1),
+        new Book("Book2", 2),
+        new Book("Book3", 3)
+    );
+    when(limitedService.getBooks()).thenReturn(limitedBooks);
+    
+    RouteController controller = new RouteController(limitedService);
+    MockMvc customMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    
+    customMockMvc.perform(get("/books/recommendation"))
+                 .andExpect(status().isOk())
+                 .andExpect(jsonPath("$", hasSize(3)));
   }
 }
