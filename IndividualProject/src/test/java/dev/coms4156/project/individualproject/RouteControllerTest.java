@@ -375,7 +375,7 @@ class RouteControllerTest {
 
   /**
    * Creates a list of books for recommendation testing.
-   * 
+   *
    * @param count Number of books to create
    * @return List of books with varied checkout histories
    */

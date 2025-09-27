@@ -301,47 +301,5 @@ public class RouteController {
     return sortedBooks;
   }
 
-  /**
-   * Checks out a book by its ID, updating all relevant fields to indicate checkout.
-   *
-   * @param bookId An {@code Integer} representing the unique ID of the book to check out.
-   * @return A {@code ResponseEntity} containing the updated {@code Book} object with an
-   *         HTTP 200 response if successful, or an appropriate error message with
-   *         corresponding HTTP status code on failure.
-   */
-  @PostMapping("/checkout")
-  public ResponseEntity<?> checkoutBook(@RequestParam Integer bookId) {
-    // Validate bookId parameter
-    if (bookId == null || bookId < 0) {
-      return new ResponseEntity<>("Invalid book ID", HttpStatus.BAD_REQUEST);
-    }
-
-    try {
-      // Find the book by ID
-      for (Book book : mockApiService.getBooks()) {
-        if (bookId.equals(book.getId())) {
-          // Attempt to checkout the book
-          String dueDate = book.checkoutCopy();
-          
-          if (dueDate != null) {
-            // Checkout successful - update the book in the service
-            mockApiService.updateBook(book);
-            return new ResponseEntity<>(book, HttpStatus.OK);
-          } else {
-            // No copies available for checkout
-            return new ResponseEntity<>("No copies available for checkout", 
-                                      HttpStatus.CONFLICT);
-          }
-        }
-      }
-
-      // Book not found
-      return new ResponseEntity<>("Book not found", HttpStatus.NOT_FOUND);
-    } catch (Exception e) {
-      System.err.println(e);
-      return new ResponseEntity<>("An error occurred during checkout", 
-                                HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
 
 }
